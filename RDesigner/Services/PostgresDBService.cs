@@ -69,6 +69,45 @@ namespace RDesigner.Services
             return _connectionString ?? throw new InvalidOperationException("Data source is not initialized.");
         }
 
+        public async Task<ARMReport?> GetReportById(int id)
+        {
+            await using var connection = await dataSource.OpenConnectionAsync();
+            await using var command = new NpgsqlCommand(@"SELECT 
+                    ""REPORT_ID"",       -- 0 int
+                    ""PARENT_ID"",       -- 1 int
+                    ""UNIQUE_ID"",       -- 2 int
+                    ""NAME"",            -- 3 string
+                    ""IS_FOLDER"",       -- 4 bool
+                    ""IS_DELETE"",       -- 5 bool
+                    ""MODIFY_DATE"",     -- 6 timestamp (DateTime)
+                    ""DESCRIPTION"",     -- 7 string (nullable)
+                    ""BINARY_BODY""      -- 8 byte[] (nullable)
+                FROM public.""Rep_REPORTS"" 
+                WHERE ""REPORT_ID"" = @id", connection);
+
+            command.Parameters.AddWithValue("id", id);
+
+            await using var reader = await command.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                return new ARMReport
+                {
+                    ARMReportID = reader.GetInt32(0),
+                    ParentID = reader.GetInt32(1),
+                    UniqueID = reader.GetInt32(2),
+                    Name = reader.IsDBNull(3) ? "Unnamed Report" : reader.GetString(3),
+                    isFolder = reader.GetBoolean(4),
+                    isDelete = reader.GetBoolean(5),
+                    ModifyDate = reader.IsDBNull(6) ?
+                        string.Empty :
+                        reader.GetDateTime(6).ToString("yyyy-MM-dd HH:mm:ss"),
+                    Description = reader.IsDBNull(7) ? null : reader.GetString(7),
+                    reportData = reader.IsDBNull(8) ? null : (byte[])reader[8],                    
+                };
+            }
+            return null;
+        }
+
         public async Task<List<ARMReport>> GetAllReportsAsync()
         {            
             var reports = new List<ARMReport>();            

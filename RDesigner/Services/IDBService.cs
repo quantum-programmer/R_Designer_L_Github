@@ -12,6 +12,7 @@ namespace RDesigner.Services
     {           
         public bool CheckConnection();
         public string GetConnectionString();
+        public Task<ARMReport?> GetReportById(int id);
         public Task<List<ARMReport>> GetAllReportsAsync();
         public Task<Boolean> InsertReportAsync(ARMReport r);
         public Task<Boolean> UpdateReportAsync(ARMReport r);

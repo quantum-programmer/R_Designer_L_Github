@@ -40,7 +40,122 @@ namespace RDesigner.ViewModels;
             this._dbService = myService;
             LoadReportsAsync();
             _ = StartListeningForReportsChangeAsync(); // Запуск прослушивания уведомлений
+            /*var args = Environment.GetCommandLineArgs();
+            Log.Information("Аргументы командной строки: {Args}", args);*/
+            // Обработка аргументов командной строки
+            ProcessCommandLineArgs();
         }
+
+
+        private async void ProcessCommandLineArgs()
+        {
+            var args = Environment.GetCommandLineArgs();
+            Log.Information("Аргументы командной строки: {Args}", string.Join(" ", args));
+
+            // Упрощенный парсинг без Dictionary
+            string cmd = null;
+            string id = null;
+
+            for (int i = 1; i < args.Length; i++) // Пропускаем первый аргумент (путь к exe)
+            {
+                if (args[i].StartsWith("cmd="))
+                    cmd = args[i].Substring(4);
+                else if (args[i].StartsWith("id="))
+                    id = args[i].Substring(3);
+            }
+
+            if (cmd == "show" && id != null && int.TryParse(id, out int reportId))
+            {
+                /* if (_lifetime.MainWindow != null)
+                     _lifetime.MainWindow.Hide();*/
+
+                ViewReportDirectly(reportId);
+            }
+        }
+
+        private async void ViewReportDirectly(int id)
+        {
+
+            IClassicDesktopStyleApplicationLifetime desktop = null;
+            Window mainWindow = null;
+
+            // Ждём появления главного окна (с таймаутом)
+            for (int i = 0; i < 10 && mainWindow == null; i++)
+            {
+                if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime d)
+                {
+                    desktop = d;
+                    mainWindow = d.MainWindow;
+                }
+
+                if (mainWindow == null)
+                    await Task.Delay(100);
+            }
+
+            if (mainWindow == null)
+            {
+                Console.WriteLine("Главное окно не найдено");
+                return;
+            }
+
+            // Устанавливаем прозрачность
+            var originalOpacity = mainWindow.Opacity;
+            mainWindow.Opacity = 0.01;
+
+
+            var report = await _dbService.GetReportById(id);
+            if (report.reportData == null || report.reportData.Length == 0)
+            {
+                Console.WriteLine("Report data is empty");
+            }
+            try
+            {
+                using var stream = new MemoryStream(report.reportData);
+                var loadedReport = new FastReport.Report();
+                loadedReport.Load(stream);
+                loadedReport.Show(false);
+
+                // Ждем закрытия отчета (если нужно)
+                /*while (loadedReport.is == true)
+                {
+                    await Task.Delay(100);
+                }
+                Log.Information("Отчет закрыт");*/
+                //mainWindow.Close();
+            // Если нужно предпросмотр в GUI
+            //loadedReport.Show(false);
+            // закрытие главного окна
+
+            // Создаём окно предпросмотра
+            /*  var preview = new FastReport.Preview.PreviewReportWindow();
+              preview.LoadReport(loadedReport);
+
+              // Обработчик закрытия окна отчёта
+              preview.Closed += (s, e) =>
+              {
+                  mainWindow.Dispatcher.Post(() =>
+                  {
+                      // Можно восстановить прозрачность, если нужно
+                      // mainWindow.Opacity = originalOpacity;
+
+                      // Закрываем главное окно
+                      desktop.MainWindow = null;
+                      mainWindow.Close();
+                  });
+              };*/
+
+            // Показываем окно отчёта
+            // preview.Show();
+            }
+
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при загрузке отчета: {ex.Message}");
+            }
+        // Или если нужно экспортировать в PDF/другой формат
+        // loadedReport.Export(...);
+        }
+
         private async Task LoadReportsAsync()
         {
             try
